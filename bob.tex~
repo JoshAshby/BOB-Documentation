@@ -4,6 +4,8 @@
 \usepackage[top=1in, bottom=1in, left=1in, right=1in]{geometry}
 \usepackage{graphicx}
 \usepackage{listings}
+\lstset{language=C}
+\lstset{numbers=left, numberstyle=\small, stepnumber=1, numbersep=5pt}
 
 \begin{document}
 
@@ -29,7 +31,7 @@ In Conjunction with:\\
 \newpage
 \tableofcontents
 \listoffigures
-\renewcommand{\lstlistlistingname}{List of Listings}
+\renewcommand{\lstlistlistingname}{List of Code boxes}
 \lstlistoflistings
 
 \section{Revisions}\\
@@ -60,7 +62,7 @@ The steering for BOB was modeled after a car style steering system, where two wh
   \caption{Example of the steering build used}
 \label{steering}
 \end{figure}\\
-TODO: Fix this description
+TODO: Fix this description\\
 The build of this was accomplished by using two pre-built wheel casters, and welding on strips of quarter inch thick steel. These strips are approximately 6 inches long, and at the end that is not welded to the caster wheels, there is a hole drilled. Then connecting the two wheels via these strips, is a second pair of steel strips that are hooked up to the steering motor.\\
 The steering motor is a 9.6V 10A drill motor that has been mounted with a right angle drive. This allows the motor to lay flat with the robot frame and still be able to turn the steering rod (Figure \ref{steeringmotor}).
 \begin{figure}[htp]
@@ -99,17 +101,102 @@ The I2C header is broken out which I2C on the Atmega328p is the analog pins 4 an
 The Power Node, as of Generation 2 electronics is simply a “dead” Node as one might call it. It has no intelligence, instead it's only function for generation 2 is to regulate and distribute 5V to all the boards. It does this via Molex connectors off of old ATX power supplies from computers. This same board design was used in the Generation 3 electronics also.\\
 \section{Software}
 \subsection{Libraries - Introduction}
-As of January 2010, BOB runs a custom writen library set that takes care of everything from PWM and digital function to analog, ultrasounds, and calibration.
+As of January 2010, BOB runs a custom writen library set that takes care of everything from PWM and digital function to analog, ultrasounds, and calibration.\footnote{Please note that memory was not an issue during the time of the writing of these libraries there for they have many places that memory types can be changed to improve file size.}\\
 \subsection{Digital Functions}
 First up is the digital function library (Page: \pageref{digital}). The digital function library takes care of turning a pin on or off, which seems simple enough. While this task is quite trivial in code, those few extra lines tend to make the code look messy, which I don't like as much.\\
+\begin{verbatim}void portB_out(int pin, int value)\end{verbatim}
+Simply send the pin number (0 through 7), and the value (1 or 0) and the corrisponding pin on PORTB will be set to that value.\\
+\begin{verbatim}void portD_out(int pin, int value)\end{verbatim}
+Simply send the pin number (0 through 7), and the value (1 or 0) and the corrisponding pin on PORTD will be set to that value.\\
+\begin{verbatim}void out(char port, int pin, int value)\end{verbatim}
+Send the port letter, the pin number, and the value (0 or 1) and the corrisponding pin on that port will be set to that value.\\
+\subsubsection{Example}
+\begin{lstlisting}[caption={Digital examples},label=digitalex,frame=tbl]
+portB_out(3,1); //will turn on (close) PORTB pin 3
+portD_out(0,0); //will turn off (open) PORTD pin 0
+out('D',5,1); //will turn on (close) PORTD pin 5
+\end{lstlisting}
+
 \subsection{Analog Functions}
 Unlike the digital code, reading from an analog pin takes some work. First you have to setup the registers, which in my case get me going at a prescaler of 128, interupt driven, and left alinged bits. The left aligned results mean that I don't have to do fancy code and get 10bit results, which I don't need. instead I can simply read the ADCH register and get an 8 bit result. The next step is to read the results, or change the pin that I am reading from, both which take more code. As a result of all this, placing the analog functions inside of a nice, clean library makes sense (Page: \pageref{analog}).\\
+\begin{verbatim}void adc_start(void)\end{verbatim}
+Calling this will simply setup the correct registers, and start an interupt driven ADC comversion. After this is called the value of the ADC can be found in the ADCH register.
+\begin{verbatim}void adc_stop()\end{verbatim}
+Simply stops the ADC conversions.
+\begin{verbatim}void adc_change(int chan)\end{verbatim}
+Calling this with pins numbers 0-8 will cause the ADC to be stoped, the pin changed, and the ADC started again.
+\subsubsection{Example}
+\begin{lstlisting}[caption={Analog examples},label=analogex,frame=tbl]
+adc_start();
+adc_stop();
+adc_change(3);
+\end{lstlisting}
+
 \subsection{PWM Functions}
-Like the analog functions, the PWM functions that I needed were large, and very messy pieces of code. They consisted of several functions that setup the registers for the three PWM timers, and then several more to add in functions like ramp up and down functionability. (Page: \pageref{pwm}).\\
+Like the analog functions, the PWM functions that I needed were large, and very messy pieces of code. They consisted of several functions that setup the registers for the three PWM timers, and then several more to add in functions like ramp up and down functionability. (Page: \pageref{pwm}).
+\begin{verbatim}(#L)\end{verbatim} stands for number and letter respectivly, when used likst this it means too replace \begin{verbatim}(#L)\end{verbatim} with something such as 0A or 2B.
+\begin{verbatim}void pwm_setup_all(void)\end{verbatim}
+sets up the registers for all the PWM timers in phase correct not prescaled PWM mode.
+\begin{verbatim}void pwm_setup(#)(void)\end{verbatim}
+Sets up the given PWM channel timer with the corrent register settings.
+\begin{verbatim}void pwm(#L)(unsigned int value)\end{verbatim}Tests the turning motor and functions, simply goes through and cycles which direction every time.
+Sets the PWM duty cycle of the given channel.
+\begin{verbatim}void pwm_ramp(#L)(unsigned int value, unsigned int speed)\end{verbatim}
+Ramps the given PWM channel at the given speed to the given duty cycle.
+\begin{verbatim}void pwm_rampUp(#L)(unsigned int value, unsigned int speed)\end{verbatim}
+Ramps up the given PWM channel at the given speed to the given duty cycle.
+\begin{verbatim}void pwm_rampDown(#L)(unsigned int value, unsigned int speed)\end{verbatim}
+Ramps down the given PWM channel at the given speed to the given duty cycle.
+\subsubsection{Example}
+\begin{lstlisting}[caption={PWM examples},label=pwmex,frame=tbl]
+pwm_setup_all(); //setup all the PWM timers
+pwm2A(50); //sets OCR2A to 50
+pwm_ramp1A(255, 10); //will ramp OCR1A to 255 with a delay of 10ms between each step
+
+\end{lstlisting}
+
 \subsection{Robotics Functions}
 The robotics library takes care of most of the things that BOB needs to run. It houses the turn functions, and the filter that takes care of the  ultrasound data. This filter is a custom rolling average with a few additions which smooth the data points out really well as the analog outputs on the ultrasounds are a little jumpy (Page: \pageref{robot}).\\
+\begin{verbatim}void turn_left(void)\end{verbatim}
+Does exactly what it says, simply takes care of the timing and everything for turning.
+\begin{verbatim}void turn_right(void)\end{verbatim}
+Same as turn left.
+\begin{verbatim}void stop(void)\end{verbatim}
+Stops everything and displays the error 1.
+\begin{verbatim}void calibrate(void)\end{verbatim}
+Calling this starts the ADC, then fills the rolling average, setting the base length to the first set of data from when the bots not moving, very useful and when used with the filter makes nice data for BOB.
+\begin{verbatim}void ultrasound_test(void)\end{verbatim}
+Tests the ultrasounds and displays the results with the on board LEDs
+\begin{verbatim}int ultrasound_filter(int pin)\end{verbatim}
+Starts a rolling average with a few additions to smooth out data points, returns the current average.
+\begin{verbatim}void test_turn(void)\end{verbatim}
+Tests the turning motor and functions, simply goes through and cycles which direction every time.
+\begin{verbatim}void test_motor(void)\end{verbatim}
+Tests the main propulsion motor and functions, simply goes through and cycles which direction every time.
+\subsubsection{Example}
+\begin{lstlisting}[caption={Robot examples},label=robotex,frame=tbl]
+turn_left();
+turn_right();
+pwm2B(ultrasoundfilter(4)); //will cause the PWM 2B channel to be set to
+//whatever the returned value of ultrasoundfilter is
+\end{lstlisting}
+
 \subsection{Boot Functions}
-(Page: \pageref{boot}).\\
+Finally the boot library takes care of setting everything up as the robot first starts, basically it's an implementation of a low level bios for BOB (Page: \pageref{boot}).\\
+\begin{verbatim}void bios(void)\end{verbatim}
+Calling this will setup everything that BOB needs to run, calibrates the sensors and in general gets everything ready.
+\begin{verbatim}void all_good(void)\end{verbatim}
+Status LED on.
+\begin{verbatim}void oh_crap(void)\end{verbatim}
+Status LED off.
+\begin{verbatim}void error(int type)\end{verbatim}
+gives a few different types of errors that can be given through the LEDs, not really used all the much yet.
+\subsubsection{Example}
+\begin{lstlisting}[caption={Boot examples},label=bootex,frame=tbl]
+bios(); //sets up everything needed for BOB to run
+error(1); //will display the error 1
+\end{lstlisting}
+
 \newpage
 \section{About the builders}
 \subsection{Joshua Ashby}
@@ -120,8 +207,6 @@ The robotics library takes care of most of the things that BOB needs to run. It 
 All code and schematics are released under the Creative Commons Attribution-Noncommercial 3.0 United States License.\\
 The code can be found online at github: http://github.com/JoshAshby/Robotbob/tree/experimental\\
 \subsection{Code}
-\lstset{language=C}
-\lstset{numbers=left, numberstyle=\small, stepnumber=1, numbersep=5pt}
 \begin{lstlisting}[caption={The digital function library.},label=digital,frame=tbl]
 
 //-------------------------------------------
